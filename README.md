@@ -1,4 +1,4 @@
-# Eitra & Emi bot, a discord bot that scrapes sex tips from r/EritraAndEmi
+# Eitra & Emi bot, a discord bot that scrapes *tips* from r/EritraAndEmi
 ## Usage
 Run `Scrape.py`
 ## Invite (hosted by me and will go down occasionally)
