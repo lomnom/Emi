@@ -204,11 +204,14 @@ async def info(ctx):
 async def reload():
 	tips.refresh()
 
-@bot.command(pass_context=True,description="Reload panels from reddit. Already happens every 30mins")
+@bot.command(pass_context=True,description="Reload panels from reddit. Already happens every 30mins. Admin command.")
 @commands.has_permissions(administrator=True)
 async def reload(ctx):
+	msg=await ctx.send(embed=
+		discord.Embed(description="Reloading panels...",title="Progress")
+	)
 	await tips.refresh()
-	await ctx.send(embed=
+	await msg.edit(embed=
 		discord.Embed(description="Reloaded panels!",title="Success",color=0x00ff44)
 	)
 
