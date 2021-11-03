@@ -89,19 +89,37 @@ class Tips:
 
 bot=commands.Bot(command_prefix="-")
 
-@bot.command(pass_context=True,aliases=["tip","sextip","tips","sextips"])
-async def gettip(ctx,id):
-	tip=tips.tip(int(id))
-	try:
-		await tip.refresh()
-	except Exception as e:
-		log("Met '{}: {}'".format(type(e),str(e)),type="error")
-		return
-	await ctx.send(embed=tip.embed)
+def ranges(ranges):
+	for arange in ranges:
+		if "-" not in arange:
+			yield int(arange)
+		else:
+			arange=arange.split("-")
+			arange[0]=int(arange[0])
+			arange[1]=int(arange[1])
+			if arange[0]>arange[1]: 
+				arange.push(arange[0])
+				arange.pop(0)
+			for n in range(arange[0],arange[1]+1):
+				yield n
 
-@bot.command(pass_context=True)
-async def reddit(ctx,id):
-	#pass
+async def tipembed(id):
+	try:
+		tip=tips.tip(int(id))
+	except KeyError:
+		return discord.Embed(title="Error!", description=f"Tip {id} does not exist!", color=0xff0000)
+	if not hasattr(tips.tip(int(id)),"image"):
+		try:
+			await tip.refresh()
+		except Exception as e:
+			log("Met '{}: {}'".format(type(e),str(e)),type="error")
+			return None
+	return tip.embed
+
+@bot.command(pass_context=True,aliases=["tip","sextip","tips","sextips"])
+async def gettip(ctx,*id):
+	for id in ranges(id):
+		await ctx.send(embed=await tipembed(id))
 
 reddit=None
 tips=None
