@@ -116,10 +116,60 @@ async def tipembed(id):
 			return None
 	return tip.embed
 
-@bot.command(pass_context=True,aliases=["tip","sextip","tips","sextips"])
-async def gettip(ctx,*id):
-	for id in ranges(id):
-		await ctx.send(embed=await tipembed(id))
+@bot.command(
+	pass_context=True,aliases=["tip","tips","sextips"],
+	usage="[tip number(s)]",
+	description="Get sex tip"
+)
+async def sextip(ctx,*id):
+	panels=list(ranges(id))
+	if len(panels)==1:
+		await ctx.send(embed=await tipembed(panels[0]))
+		return
+
+	pos=0
+	embed=await tipembed(panels[0])
+	embed.set_footer(text=embed.footer.text+" ({}/{})".format(pos+1,len(panels)))
+	msg=await ctx.send(embed=embed)
+	for reaction in ['⬅️','➡️']:
+		await msg.add_reaction(reaction)
+
+	def check(reaction, user):
+		return reaction.message==msg and str(reaction.emoji) in ['⬅️','➡️'] and user!=bot.user
+
+	try:
+		while True:
+			reaction, user = await bot.wait_for('reaction_add', timeout=300, check=check)
+			await reaction.remove(user)
+			emoji=str(reaction)
+			if emoji=='⬅️':
+				pos-=1
+			elif emoji=='➡️':
+				pos+=1
+			pos=pos%len(panels)
+			embed=await tipembed(panels[pos])
+			embed.set_footer(text=embed.footer.text+" ({}/{})".format(pos+1,len(panels)))
+			await msg.edit(embed=embed)
+
+	except asyncio.TimeoutError:
+		for reaction in ['⬅️','➡️']:
+			await msg.clear_reaction(reaction)
+
+@bot.command(pass_context=True,usage="",description="Shows subreddit stats")
+async def reddit(ctx):
+	subreddit=tips.subreddit
+	embed=discord.Embed(description=subreddit.public_description)
+	embed.set_author(
+		name="Eitra and Emi's Sex Tips\nr/"+tips.subredditname, 
+		url="https://reddit.com/r/"+tips.subredditname, 
+		icon_url=tips.subreddit.icon_img
+	)
+	embed.add_field(name="Members", value=subreddit.subscribers, inline=True)
+	embed.add_field(
+		name="Created at", 
+		value=time.strftime("%D %H:%M", time.localtime(subreddit.created_utc)), inline=True
+	)
+	await ctx.send(embed=embed)
 
 reddit=None
 tips=None
