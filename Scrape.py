@@ -6,6 +6,12 @@ from TermManip import *
 from yaml import safe_load as load
 import asyncio
 import re
+import time
+try: 
+	from BeautifulSoup import BeautifulSoup
+except ImportError:
+	from bs4 import BeautifulSoup
+import requests
 
 try:
 	credentials=load(open("passwords.yaml","r").read())["passwords"]
@@ -29,39 +35,73 @@ class Tips:
 		self.loop=self.bot.loop
 		self.loop.create_task(self.refresh())
 
+	@staticmethod
+	def tipname(name): 
+		title=re.findall(r"Eitra and Emi's (?:[Ss]ex )?[Tt]ips[: ]+#?\d+(?: \(.+\))?",name)
+		if len(title)==0:
+			return None
+		else:
+			return (title[0],int(re.findall(r"\d+",name)[0]))
+
 	async def refresh(self):
 		self.subreddit=await reddit.subreddit(self.subredditname, fetch=True)
-		async for post in self.subreddit.search(f"Eitra and Emi's Tips: #",sort="new"):
-			index=re.findall(r"(?<=Eitra and Emi's Tips: #)\d+",post.title)
-			if len(index)==1:
-				self.lasttip=int(index[0])
+		self.tips={}
+		async for post in self.subreddit.search(f"Eitra and Emi's Tips: ",sort="new",limit=None):
+			index=self.tipname(post.title)
+			try:
+				self.tips[index[1]]=self.Tip(self,post,index[1])
+			except TypeError:
+				raise TypeError("Title '{}'' couldnt be proccessed properly".format(post.title))
 
 	class Tip:
-		def __init__(self,parent,id):
+		def __init__(self,parent,post,index):
 			self.parent=parent
-			self.id=id
+			self.post=post
+			self.index=index
 
 		async def refresh(self):
-			async for post in self.parent.subreddit.search(f"Eitra and Emi's Tips: #{self.id}"):
-				self.post=None
-				if post.title==f"Eitra and Emi's Tips: #{self.id}":
-					self.post=post
-					self.image=post.url
-					break
-				if self.post==None:
-					raise FileNotFoundError
+			self.image=self.post.url
+			if "ibb.co" in self.image:
+				page=requests.get(self.image).text 
+				page=BeautifulSoup(page,features="lxml")
+				self.image=page.find("link",attrs={'rel':'image_src'})["href"]
+			self.title=self.post.title
+			self.url="https://reddit.com/"+self.post.id
+			self.creation=time.strftime("%D %H:%M", time.localtime(self.post.created_utc))
+			self.votes=self.post.score
+			self.comments=self.post.num_comments
+			self.flair=self.post.link_flair_text
+			self.embed=discord.Embed(
+				title=self.title, url=self.url,
+				description="["+self.flair+"]" if self.flair!=None else "",
+				color=hash(self.flair+"ae" if self.flair!=None else 0xe9d357)%16777215
+			)
+			self.embed.set_footer(
+				text="Created at {} | {} Votes | {} Comment{}".format(
+					self.creation,self.votes,self.comments,
+					"s" if self.comments!=1 else ""
+				)
+			)
+			self.embed.set_image(url=self.image)
 
 	def tip(self,index):
-		if index>self.lasttip or index<=0:
-			return self.Tip(self,index)
+		return self.tips[index]
 
 bot=commands.Bot(command_prefix="-")
 
-@bot.command(pass_context=True,aliases=["tip","sextip"])
+@bot.command(pass_context=True,aliases=["tip","sextip","tips","sextips"])
 async def gettip(ctx,id):
 	tip=tips.tip(int(id))
-	await tip.refresh()
-	await ctx.send(tip.image)
+	try:
+		await tip.refresh()
+	except Exception as e:
+		log("Met '{}: {}'".format(type(e),str(e)),type="error")
+		return
+	await ctx.send(embed=tip.embed)
+
+@bot.command(pass_context=True)
+async def reddit(ctx,id):
+	#pass
 
 reddit=None
 tips=None
@@ -84,7 +124,7 @@ async def on_ready(): #show on ready logs
 			log("Getting Tips object...")
 			tips=Tips(bot)
 			try:
-				tips.refresh()
+				await tips.refresh()
 			except Exception as e:
 				log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
 				await bot.close()
