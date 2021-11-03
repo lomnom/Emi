@@ -1,7 +1,6 @@
 import asyncpraw as praw
 import discord
 from discord.ext import commands
-from discord.ext import tasks
 from discord.ext.commands import Bot
 from TermManip import *
 from yaml import safe_load as load
@@ -44,21 +43,25 @@ class Tips:
 
 	@staticmethod
 	def tipname(name): 
-		title=re.findall(r"Eitra and Emi's (?:[Ss]ex )?[Tt]ips[: ]+#?\d+(?: \(.+\))?",name)
+		title=re.findall(r"Eitra and Emi(?:'s (?:[Ss]ex )?[Tt]ips)?[: ]+#?\d+(?: \(.+\))?",name)
 		if len(title)==0:
 			return None
 		else:
-			return (title[0],int(re.findall(r"\d+",name)[0]))
+			return (title[0],int(re.findall(r"\d+",title[0])[0]))
 
 	async def refresh(self):
 		self.subreddit=await reddit.subreddit(self.subredditname, fetch=True)
 		self.tips={}
-		async for post in self.subreddit.search(f"Eitra and Emi's Tips: ",sort="new",limit=None):
+		dupes=[]
+		posts=[]
+		async for post in self.subreddit.search(f"Eitra and Emi",sort="new",limit=None):
 			index=self.tipname(post.title)
-			try:
+			if index:
 				self.tips[index[1]]=self.Tip(self,post,index[1])
-			except TypeError:
-				raise TypeError("Title '{}'' couldnt be proccessed properly".format(post.title))
+
+		for tip in range(1,max(self.tips.keys())+1):
+			if tip not in self.tips:
+				log("Tip {} is missing!".format(tip),type="error")
 
 	class Tip:
 		def __init__(self,parent,post,index):
@@ -93,6 +96,9 @@ class Tips:
 
 	def tip(self,index):
 		return self.tips[index]
+
+	def __len__(self):
+		return max(self.tips.keys())
 
 bot=commands.Bot(command_prefix="-")
 
@@ -176,6 +182,10 @@ async def reddit(ctx):
 		name="Created at", 
 		value=time.strftime("%D %H:%M", time.localtime(subreddit.created_utc)), inline=True
 	)
+	embed.add_field(
+		name="Panels",
+		value=str(len(tips)), inline=True
+	)
 	await ctx.send(embed=embed)
 
 @bot.command(pass_context=True,description="Shows bot info")
@@ -200,11 +210,7 @@ async def info(ctx):
 	embed.set_footer(text="Made by u/dalithop, with boredom:tm:")
 	await ctx.send(embed=embed)
 
-@tasks.loop(minutes=30)
-async def reload():
-	tips.refresh()
-
-@bot.command(pass_context=True,description="Reload panels from reddit. Already happens every 30mins. Admin command.")
+@bot.command(pass_context=True,description="Reload panels from reddit. Admin command.")
 @commands.has_permissions(administrator=True)
 async def reload(ctx):
 	msg=await ctx.send(embed=
