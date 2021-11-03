@@ -1,6 +1,6 @@
 import asyncpraw as praw
 import discord
-from discord.ext import commands
+from discord.ext import commands,tasks
 from discord.ext.commands import Bot
 from TermManip import *
 from yaml import safe_load as load
@@ -16,7 +16,10 @@ except ImportError:
 	from bs4 import BeautifulSoup
 import requests
 
-start=str(datetime.now()).split(" ")[0]
+def unixtime(unix):
+	return time.strftime("%D %H:%M", time.localtime(int(unix)))
+
+start=unixtime(time.time())
 uses=0
 
 try:
@@ -39,6 +42,7 @@ class Tips:
 		self.subredditname="r/EitraAndEmi".lstrip("r/")
 		self.bot=bot
 		self.loop=self.bot.loop
+		self.refreshed=None
 
 	@staticmethod
 	def tipname(name): 
@@ -99,6 +103,8 @@ class Tips:
 		if missing!=[]:
 			log("Could not resolve missing tips "+", ".join(str(val) for val in missing),type="error")
 
+		self.refreshed=unixtime(time.time())
+
 	class Tip:
 		def __init__(self,parent,post,index):
 			self.parent=parent
@@ -113,7 +119,7 @@ class Tips:
 				self.image=page.find("link",attrs={'rel':'image_src'})["href"]
 			self.title=self.post.title
 			self.url="https://reddit.com/"+self.post.id
-			self.creation=time.strftime("%D %H:%M", time.localtime(self.post.created_utc))
+			self.creation=unixtime(self.post.created_utc)
 			self.votes=self.post.score
 			self.comments=self.post.num_comments
 			self.flair=self.post.link_flair_text
@@ -235,19 +241,26 @@ async def info(ctx):
 		name="Eitra & Emi bot, a bot that fetches sex tips from r/EritraAndEmi",
 		url="https://github.com/lomnom/Emi", icon_url=bot.user.avatar_url
 	)
+	embed.add_field(name="Times invoked", value=uses, inline=True)
+	embed.add_field(name="Last reload", value=tips.refreshed, inline=True)
 	embed.add_field(name="Last restart", value=start, inline=True)
 	embed.add_field(
 		name="Last commit (local)", 
-		value=str(
-			subprocess.check_output("git log -1 --date=short --pretty=format:%cd".split(" "))
-		,encoding="ascii"),
+		value=unixtime(int(str(
+			subprocess.check_output("git log -1 --date=unix --pretty=format:%cd".split(" "))
+		,encoding="ascii"))),
 		inline=True
 	)
-	embed.add_field(name="Times used", value=uses, inline=True)
 	embed.set_footer(text="Made by u/dalithop, with boredom:tm:")
 	await ctx.send(embed=embed)
 
-@bot.command(pass_context=True,description="Reload panels from reddit. Admin command.")
+@tasks.loop(minutes=1)
+async def reload():
+	log("Auto-reloading...")
+	await tips.refresh()
+	log("Reloaded!",type="success")
+
+@bot.command(pass_context=True,description="Reload panels from reddit. Already happens every 30mins. Admin command.")
 @commands.has_permissions(administrator=True)
 async def reload(ctx):
 	msg=await ctx.send(embed=
@@ -281,15 +294,13 @@ async def on_ready(): #show on ready logs
 			try:
 				await tips.refresh()
 			except Exception as e:
-				# log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
-				# await bot.close()
-				raise e
+				log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
+				await bot.close()
 			else:
 				log("Initialised!",type="success")
 		except Exception as e:
-			# log("Met '{}: {}'".format(type(e),str(e)),type="error")
-			# await bot.close()
-			raise e
+			log("Met '{}: {}'".format(type(e),str(e)),type="error")
+			await bot.close()
 
 @bot.event
 async def on_command(ctx):
