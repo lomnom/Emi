@@ -1,6 +1,7 @@
 import asyncpraw as praw
 import discord
 from discord.ext import commands
+from discord.ext import tasks
 from discord.ext.commands import Bot
 from TermManip import *
 from yaml import safe_load as load
@@ -9,6 +10,7 @@ import re
 import time
 import subprocess
 from datetime import datetime
+import hashlib
 try: 
 	from BeautifulSoup import BeautifulSoup
 except ImportError:
@@ -79,7 +81,7 @@ class Tips:
 			self.embed=discord.Embed(
 				title=self.title, url=self.url,
 				description="["+self.flair+"]" if self.flair!=None else "",
-				color=hash(self.flair+"ae" if self.flair!=None else 0xe9d357)%16777215
+				color=int(hashlib.md5(self.flair.encode("utf-8")).hexdigest()[:6],16) if self.flair!=None else 0xe9d357
 			)
 			self.embed.set_footer(
 				text="Created at {} | {} Votes | {} Comment{}".format(
@@ -160,14 +162,14 @@ async def sextip(ctx,*id):
 		for reaction in ['⬅️','➡️']:
 			await msg.clear_reaction(reaction)
 
-@bot.command(pass_context=True,usage="",description="Shows subreddit stats")
+@bot.command(pass_context=True,description="Shows subreddit stats")
 async def reddit(ctx):
 	subreddit=tips.subreddit
 	embed=discord.Embed(description=subreddit.public_description)
 	embed.set_author(
 		name="Eitra and Emi's Sex Tips\nr/"+tips.subredditname, 
 		url="https://reddit.com/r/"+tips.subredditname, 
-		icon_url=tips.subreddit.icon_img
+		icon_url=tips.subreddit.icon_img if tips.subreddit.icon_img else bot.user.avatar_url
 	)
 	embed.add_field(name="Members", value=subreddit.subscribers, inline=True)
 	embed.add_field(
@@ -176,7 +178,7 @@ async def reddit(ctx):
 	)
 	await ctx.send(embed=embed)
 
-@bot.command(pass_context=True,usage="",description="Shows bot info")
+@bot.command(pass_context=True,description="Shows bot info")
 async def info(ctx):
 	embed=discord.Embed(
 		description="Report bugs: Dalithop#2545\n"
@@ -188,7 +190,7 @@ async def info(ctx):
 	)
 	embed.add_field(name="Last restart", value=start, inline=True)
 	embed.add_field(
-		name="Last update", 
+		name="Last commit (local)", 
 		value=str(
 			subprocess.check_output("git log -1 --date=short --pretty=format:%cd".split(" "))
 		,encoding="ascii"),
@@ -197,6 +199,18 @@ async def info(ctx):
 	embed.add_field(name="Times used", value=uses, inline=True)
 	embed.set_footer(text="Made by u/dalithop, with boredom:tm:")
 	await ctx.send(embed=embed)
+
+@tasks.loop(minutes=30)
+async def reload():
+	tips.refresh()
+
+@bot.command(pass_context=True,description="Reload panels from reddit. Already happens every 30mins")
+@commands.has_permissions(administrator=True)
+async def reload(ctx):
+	await tips.refresh()
+	await ctx.send(embed=
+		discord.Embed(description="Reloaded panels!",title="Success",color=0x00ff44)
+	)
 
 reddit=None
 tips=None
