@@ -7,11 +7,16 @@ from yaml import safe_load as load
 import asyncio
 import re
 import time
+import subprocess
+from datetime import datetime
 try: 
 	from BeautifulSoup import BeautifulSoup
 except ImportError:
 	from bs4 import BeautifulSoup
 import requests
+
+start=str(datetime.now()).split(" ")[0]
+uses=0
 
 try:
 	credentials=load(open("passwords.yaml","r").read())["passwords"]
@@ -171,6 +176,28 @@ async def reddit(ctx):
 	)
 	await ctx.send(embed=embed)
 
+@bot.command(pass_context=True,usage="",description="Shows bot info")
+async def info(ctx):
+	embed=discord.Embed(
+		description="Report bugs: Dalithop#2545\n"
+		            "Source code: https://github.com/lomnom/Emi/"
+	)
+	embed.set_author(
+		name="Eitra & Emi bot, a bot that fetches sex tips from r/EritraAndEmi",
+		url="https://github.com/lomnom/Emi", icon_url=bot.user.avatar_url
+	)
+	embed.add_field(name="Last restart", value=start, inline=True)
+	embed.add_field(
+		name="Last update", 
+		value=str(
+			subprocess.check_output("git log -1 --date=short --pretty=format:%cd".split(" "))
+		,encoding="ascii"),
+		inline=True
+	)
+	embed.add_field(name="Times used", value=uses, inline=True)
+	embed.set_footer(text="Made by u/dalithop, with boredom:tm:")
+	await ctx.send(embed=embed)
+
 reddit=None
 tips=None
 @bot.event
@@ -201,6 +228,11 @@ async def on_ready(): #show on ready logs
 		except Exception as e:
 			log("Met '{}: {}'".format(type(e),str(e)),type="error")
 			await bot.close()
+
+@bot.event
+async def on_command(ctx):
+	global uses
+	uses+=1
 
 try:
 	log("Logging into discord...")
