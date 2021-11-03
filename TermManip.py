@@ -68,9 +68,10 @@ def log(*messages,type="message"):
 	time=t()
 	message=("\n"+
 		(" "*(len(time)-len(bold)-len(unbold)+1)))\
-			.join(" ".join(messages)\
-			.split("\n")
-		)
+			.join(
+				" ".join(messages)\
+			        .split("\n")
+			)
 	if type=="message":
 		print(t()+" "+message)
 	elif type=="error":

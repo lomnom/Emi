@@ -39,7 +39,6 @@ class Tips:
 		self.subredditname="r/EitraAndEmi".lstrip("r/")
 		self.bot=bot
 		self.loop=self.bot.loop
-		self.loop.create_task(self.refresh())
 
 	@staticmethod
 	def tipname(name): 
@@ -52,16 +51,53 @@ class Tips:
 	async def refresh(self):
 		self.subreddit=await reddit.subreddit(self.subredditname, fetch=True)
 		self.tips={}
-		dupes=[]
-		posts=[]
+		clashing={}
+
 		async for post in self.subreddit.search(f"Eitra and Emi",sort="new",limit=None):
 			index=self.tipname(post.title)
 			if index:
-				self.tips[index[1]]=self.Tip(self,post,index[1])
+				if index[1] in self.tips:
+					clashing[index[1]]=[self.tips[index[1]],self.Tip(self,post,index[0])]
+				if index[1] in clashing:
+					clashing[index[1]]+=[self.Tip(self,post,index[0])]
+				else:
+					self.tips[index[1]]=self.Tip(self,post,index[0])
 
-		for tip in range(1,max(self.tips.keys())+1):
-			if tip not in self.tips:
-				log("Tip {} is missing!".format(tip),type="error")
+		missing=[]
+		for post in range(1,max(self.tips.keys())+1):
+			if not post in self.tips:
+				missing+=[post]
+
+		if missing!=[]:
+			log("Missing tips "+", ".join(str(val) for val in missing),type="error")
+		if clashing!={}:
+			log("Tips {} have conflicting posts".format(", ".join(str(val) for val in clashing.keys())),type="error")
+
+		leftovers=[]
+		for clash in clashing:
+			previous=self.tips[clash-1]
+			candidates=clashing[clash]
+			closest=[float("inf"),None]
+			for candidateN in range(len(candidates)):
+				candidate=candidates[candidateN]
+				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
+					closest[1]=candidateN
+			self.tips[clash]=candidates.pop(closest[1])
+			leftovers+=candidates
+
+		for missingN in reversed(range(len(missing))):
+			gone=missing[missingN]
+			previous=self.tips[gone-1]
+			closest=[float("inf"),None]
+			for candidateN in range(len(leftovers)):
+				candidate=leftovers[candidateN]
+				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
+					closest[1]=candidateN
+			self.tips[gone]=leftovers.pop(closest[1])
+			missing.pop(missingN)
+
+		if missing!=[]:
+			log("Could not resolve missing tips "+", ".join(str(val) for val in missing),type="error")
 
 	class Tip:
 		def __init__(self,parent,post,index):
@@ -104,7 +140,8 @@ bot=commands.Bot(command_prefix="-")
 
 def ranges(ranges):
 	for arange in ranges:
-		if "-" not in arange:
+		if arange=="": continue
+		elif "-" not in arange:
 			yield int(arange)
 		else:
 			arange=arange.split("-")
@@ -135,7 +172,7 @@ async def tipembed(id):
 	description="Get sex tip"
 )
 async def sextip(ctx,*id):
-	panels=list(ranges(id))
+	panels=list(ranges(" ".join(id).replace(","," ").split(" ")))
 	if len(panels)==1:
 		await ctx.send(embed=await tipembed(panels[0]))
 		return
@@ -244,13 +281,15 @@ async def on_ready(): #show on ready logs
 			try:
 				await tips.refresh()
 			except Exception as e:
-				log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
-				await bot.close()
+				# log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
+				# await bot.close()
+				raise e
 			else:
 				log("Initialised!",type="success")
 		except Exception as e:
-			log("Met '{}: {}'".format(type(e),str(e)),type="error")
-			await bot.close()
+			# log("Met '{}: {}'".format(type(e),str(e)),type="error")
+			# await bot.close()
+			raise e
 
 @bot.event
 async def on_command(ctx):
