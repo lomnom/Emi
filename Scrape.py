@@ -123,18 +123,27 @@ class Tips:
 			self.votes=self.post.score
 			self.comments=self.post.num_comments
 			self.flair=self.post.link_flair_text
-			self.embed=discord.Embed(
+
+		async def embed(self):
+			if not hasattr(self,"image"):
+				try:
+					await self.refresh()
+				except Exception as e:
+					log("Met '{}: {}'".format(type(e),str(e)),type="error")
+					return None
+			embed=discord.Embed(
 				title=self.title, url=self.url,
 				description="["+self.flair+"]" if self.flair!=None else "",
 				color=int(hashlib.md5(self.flair.encode("utf-8")).hexdigest()[:6],16) if self.flair!=None else 0xe9d357
 			)
-			self.embed.set_footer(
+			embed.set_footer(
 				text="Created at {} | {} Votes | {} Comment{}".format(
 					self.creation,self.votes,self.comments,
 					"s" if self.comments!=1 else ""
 				)
 			)
-			self.embed.set_image(url=self.image)
+			embed.set_image(url=self.image)
+			return embed
 
 	def tip(self,index):
 		return self.tips[index]
@@ -161,16 +170,10 @@ def ranges(ranges):
 
 async def tipembed(id):
 	try:
-		tip=tips.tip(int(id))
+		embed=await tips.tip(int(id)).embed()
 	except KeyError:
 		return discord.Embed(title="Error!", description=f"Tip {id} does not exist!", color=0xff0000)
-	if not hasattr(tips.tip(int(id)),"image"):
-		try:
-			await tip.refresh()
-		except Exception as e:
-			log("Met '{}: {}'".format(type(e),str(e)),type="error")
-			return None
-	return tip.embed
+	return embed
 
 @bot.command(
 	pass_context=True,aliases=["tip","tips","sextips"],
@@ -210,6 +213,9 @@ async def sextip(ctx,*id):
 	except asyncio.TimeoutError:
 		for reaction in ['⬅️','➡️']:
 			await msg.clear_reaction(reaction)
+		embed=await tipembed(panels[pos])
+		embed.set_footer(text=embed.footer.text+" (timed out)")
+		await msg.edit(embed=embed)
 
 @bot.command(pass_context=True,description="Shows subreddit stats")
 async def reddit(ctx):
