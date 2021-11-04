@@ -82,8 +82,7 @@ class Tips:
 			previous=self.tips[clash-1]
 			candidates=clashing[clash]
 			closest=[float("inf"),None]
-			for candidateN in range(len(candidates)):
-				candidate=candidates[candidateN]
+			for candidateN,candidate in enumerate(candidates):
 				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
 					closest[1]=candidateN
 			self.tips[clash]=candidates.pop(closest[1])
@@ -93,8 +92,7 @@ class Tips:
 			gone=missing[missingN]
 			previous=self.tips[gone-1]
 			closest=[float("inf"),None]
-			for candidateN in range(len(leftovers)):
-				candidate=leftovers[candidateN]
+			for candidateN,candidate in enumerate(leftovers):
 				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
 					closest[1]=candidateN
 			self.tips[gone]=leftovers.pop(closest[1])
