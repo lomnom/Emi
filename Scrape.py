@@ -60,12 +60,12 @@ class Tips:
 		async for post in self.subreddit.search(f"Eitra and Emi",sort="new",limit=None):
 			index=self.tipname(post.title)
 			if index:
-				if index[1] in self.tips:
-					clashing[index[1]]=[self.tips[index[1]],self.Tip(self,post,index[0])]
 				if index[1] in clashing:
-					clashing[index[1]]+=[self.Tip(self,post,index[0])]
+					clashing[index[1]]+=[self.Tip(self,post,index[1])]
+				elif index[1] in self.tips:
+					clashing[index[1]]=[self.tips[index[1]],self.Tip(self,post,index[1])]
 				else:
-					self.tips[index[1]]=self.Tip(self,post,index[0])
+					self.tips[index[1]]=self.Tip(self,post,index[1])
 
 		missing=[]
 		for post in range(1,max(self.tips.keys())+1):
@@ -85,6 +85,7 @@ class Tips:
 			for candidateN,candidate in enumerate(candidates):
 				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
 					closest[1]=candidateN
+			log("Resolved clash {} -> {}".format(candidates[closest[1]].post.id,clash),type="success")
 			self.tips[clash]=candidates.pop(closest[1])
 			leftovers+=candidates
 
@@ -93,8 +94,16 @@ class Tips:
 			previous=self.tips[gone-1]
 			closest=[float("inf"),None]
 			for candidateN,candidate in enumerate(leftovers):
-				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
+				if abs(candidate.post.created_utc-previous.post.created_utc) < closest[0]:
 					closest[1]=candidateN
+					closest[0]=abs(candidate.post.created_utc-previous.post.created_utc)
+			log(
+				"Resolved missing {} ({}) -> {}".format(
+					leftovers[closest[1]].post.id,
+					leftovers[closest[1]].index,
+					gone
+				),type="success"
+			)
 			self.tips[gone]=leftovers.pop(closest[1])
 			missing.pop(missingN)
 
@@ -132,7 +141,10 @@ class Tips:
 			embed=discord.Embed(
 				title=self.title, url=self.url,
 				description="["+self.flair+"]" if self.flair!=None else "",
-				color=int(hashlib.md5(self.flair.encode("utf-8")).hexdigest()[:6],16) if self.flair!=None else 0xe9d357
+				color=
+					int(hashlib.md5(self.flair.encode("utf-8")).hexdigest()[:6],16) 
+						if self.flair!=None 
+						else 0xe9d357
 			)
 			embed.set_footer(
 				text="Created at {} | {} Votes | {} Comment{}".format(
@@ -173,6 +185,12 @@ async def tipembed(id):
 		return discord.Embed(title="Error!", description=f"Tip {id} does not exist!", color=0xff0000)
 	return embed
 
+def appendFooter(embed,text):
+	try:
+		embed.set_footer(text=embed.footer.text+text)
+	except TypeError:
+		embed.set_footer(text=text.lstrip(" "))
+
 @bot.command(
 	pass_context=True,aliases=["tip","tips","sextips"],
 	usage="[tip number(s)]",
@@ -186,7 +204,7 @@ async def sextip(ctx,*id):
 
 	pos=0
 	embed=await tipembed(panels[0])
-	embed.set_footer(text=embed.footer.text+" ({}/{})".format(pos+1,len(panels)))
+	appendFooter(embed," ({}/{})".format(pos+1,len(panels)))
 	msg=await ctx.send(embed=embed)
 	for reaction in ['⬅️','➡️']:
 		await msg.add_reaction(reaction)
@@ -205,14 +223,14 @@ async def sextip(ctx,*id):
 				pos+=1
 			pos=pos%len(panels)
 			embed=await tipembed(panels[pos])
-			embed.set_footer(text=embed.footer.text+" ({}/{})".format(pos+1,len(panels)))
+			appendFooter(embed," ({}/{})".format(pos+1,len(panels)))
 			await msg.edit(embed=embed)
 
 	except asyncio.TimeoutError:
 		for reaction in ['⬅️','➡️']:
 			await msg.clear_reaction(reaction)
 		embed=await tipembed(panels[pos])
-		embed.set_footer(text=embed.footer.text+" (timed out)")
+		appendFooter(embed,"(timed out)")
 		await msg.edit(embed=embed)
 
 @bot.command(pass_context=True,description="Shows subreddit stats")
