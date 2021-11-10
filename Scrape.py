@@ -338,8 +338,12 @@ async def on_ready(): #initialize
 		while True:
 			await asyncio.sleep(refreshTime*60)
 			log("Auto-reloading...")
-			await tips.refresh()
-			log("Reloaded!",type="success")
+			try:
+				await tips.refresh() #load tips
+			except Exception as e:
+				log("Met '{}: {}' while auto-refreshing".format(type(e),str(e)),type="error")
+			else:
+				log("Reloaded!",type="success")
 
 @bot.event
 async def on_command(ctx):
