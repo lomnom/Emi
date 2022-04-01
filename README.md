@@ -6,7 +6,7 @@
 Run `Scrape.py`
 ## Dependencies
 - `asyncpraw`
-- `discord`
+- `pycord`
 - `yaml`
 - `BeautifulSoup`
 - `requests`
