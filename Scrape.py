@@ -105,6 +105,8 @@ class Tips:
 				if abs(candidate.post.created_utc-previous.post.created_utc) < closest[0]:
 					closest[1]=candidateN
 					closest[0]=abs(candidate.post.created_utc-previous.post.created_utc)
+			if closest[1]==None:
+				break
 			log(
 				"Resolved missing {} ({}) -> {}".format(
 					leftovers[closest[1]].post.id,
@@ -312,38 +314,25 @@ async def on_ready(): #initialize
 	log("logged into discord as '{0.user}'".format(bot),type='success')
 	if reddit==None:
 		log("Attempting to connect to reddit...")
-		try:
-			reddit=praw.Reddit( #log into reddit
-				client_id=credentials["redditcid"],
-				client_secret=credentials["redditcs"],
-				password=credentials["redditp"],
-				user_agent="Eitra & Emi bot in https://github.com/lomnom/Emi",
-				username=credentials["redditu"]
-			)
-			log("Logged into reddit as u/{}".format(await reddit.user.me()),type="success")
-			log("Pre-initialised!")
-			log("Getting Tips object...")
-			tips=Tips(bot) 
-			try:
-				await tips.refresh() #load tips
-			except Exception as e:
-				log("Met '{}: {}' while getting Tips object".format(type(e),str(e)),type="error")
-				await bot.close()
-			else:
-				log("Initialised!",type="success")
-		except Exception as e:
-			log("Met '{}: {}'".format(type(e),str(e)),type="error")
-			await bot.close()
+		reddit=praw.Reddit( #log into reddit
+			client_id=credentials["redditcid"],
+			client_secret=credentials["redditcs"],
+			password=credentials["redditp"],
+			user_agent="Eitra & Emi bot in https://github.com/lomnom/Emi",
+			username=credentials["redditu"]
+		)
+		log("Logged into reddit as u/{}".format(await reddit.user.me()),type="success")
+		log("Pre-initialised!")
+		log("Getting Tips object...")
+		tips=Tips(bot) 
+		await tips.refresh() #load tips
+		log("Initialised!",type="success")
 		#refresh task
 		while True:
 			await asyncio.sleep(refreshTime*60)
 			log("Auto-reloading...")
-			try:
-				await tips.refresh() #load tips
-			except Exception as e:
-				log("Met '{}: {}' while auto-refreshing".format(type(e),str(e)),type="error")
-			else:
-				log("Reloaded!",type="success")
+			await tips.refresh() #load tips
+			log("Reloaded!",type="success")
 
 @bot.event
 async def on_command(ctx):
