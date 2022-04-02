@@ -50,7 +50,7 @@ class Tips:
 
 	@staticmethod
 	def tipname(name): #gets a tip title and tip index
-		title=re.findall(r"Eitra and Emi(?:'s (?:[Ss]ex )?[Tt]ips)?[: ]+#?\d+(?: \(.+\))?",name)
+		title=re.findall(r"Eitra and Emi(?:'s)?(?: (?:[Ss]ex )?[Tt]ips)?[: ]+#?\d+(?: \(.+\))?",name)
 		if len(title)==0:
 			return None
 		else:
@@ -84,38 +84,13 @@ class Tips:
 		if clashing!={}:
 			log("Tips {} have conflicting posts".format(", ".join(str(val) for val in clashing.keys())),type="error")
 
-		leftovers=[] #list of tips not used to resolve clash
-		for clash in clashing:
-			previous=self.tips[clash-1]
-			candidates=clashing[clash]
-			closest=[float("inf"),None]
-			for candidateN,candidate in enumerate(candidates): # get panel closest to previous panel in terms of time
-				if candidate.post.created_utc-previous.post.created_utc < closest[0]:
-					closest[1]=candidateN
-			log("Resolved clash {} -> {}".format(candidates[closest[1]].post.id,clash),type="success")
-			self.tips[clash]=candidates.pop(closest[1]) #resolve clash
-			leftovers+=candidates
-
-		#resolve missing panels with panels that did not resolve clashes
-		for missingN in reversed(range(len(missing))):
-			gone=missing[missingN]
-			previous=self.tips[gone-1]
-			closest=[float("inf"),None]
-			for candidateN,candidate in enumerate(leftovers): #get panel closest to previous panel in time
-				if abs(candidate.post.created_utc-previous.post.created_utc) < closest[0]:
-					closest[1]=candidateN
-					closest[0]=abs(candidate.post.created_utc-previous.post.created_utc)
-			if closest[1]==None:
-				break
-			log(
-				"Resolved missing {} ({}) -> {}".format(
-					leftovers[closest[1]].post.id,
-					leftovers[closest[1]].index,
-					gone
-				),type="success"
-			)
-			self.tips[gone]=leftovers.pop(closest[1]) #resolve missing
-			missing.pop(missingN)
+		for pos in reversed(range(len(missing))):
+			index=missing[pos]
+			results=[]
+			async for result in self.subreddit.search("tip #"+str(index)): results+=[result]
+			if results and self.tipname(results[0].title):
+				log(f"Found tip {index} with search",type='success')
+				self.tips[missing.pop(pos)]=results[0]
 
 		if missing!=[]: #log failure
 			log("Could not resolve missing tips "+", ".join(str(val) for val in missing),type="error")
@@ -307,7 +282,7 @@ async def info(ctx): #show bot stats
 	embed.set_footer(text="Made by u/dalithop, with boredom:tm:")
 	await ctx.send(embed=embed)
 
-refreshTime=30 #delay between refreshes
+refreshTime=60*24 #delay between refreshes in mins
 #refresh command
 @bot.command(
 	pass_context=True,
