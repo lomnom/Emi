@@ -174,7 +174,10 @@ class Tips:
 	def __len__(self):
 		return max(self.tips.keys())
 
-bot=commands.Bot(command_prefix="-")
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
+bot=commands.Bot(command_prefix="-",intents=intents)
 
 def ranges(ranges): # ["1","1-2"] -> [1,1,2]
 	for arange in ranges:
@@ -254,7 +257,7 @@ async def reddit(ctx): #show reddit stats
 	embed.set_author(
 		name="Eitra and Emi's Sex Tips\nr/"+tips.subredditname, 
 		url="https://reddit.com/r/"+tips.subredditname, 
-		icon_url=tips.subreddit.icon_img if tips.subreddit.icon_img else bot.user.avatar_url
+		icon_url=tips.subreddit.icon_img if tips.subreddit.icon_img else bot.user.avatar.url
 	)
 	embed.add_field(name="Members", value=subreddit.subscribers, inline=True)
 	embed.add_field(
@@ -275,7 +278,7 @@ async def info(ctx): #show bot stats
 	)
 	embed.set_author(
 		name="Eitra & Emi bot, a bot that fetches sex tips from r/EritraAndEmi",
-		url="https://github.com/lomnom/Emi", icon_url=bot.user.avatar_url
+		url="https://github.com/lomnom/Emi", icon_url=bot.user.avatar.url
 	)
 	embed.add_field(name="Times invoked", value=uses, inline=True)
 	embed.add_field(name="Last reload", value=tips.refreshed, inline=True)
