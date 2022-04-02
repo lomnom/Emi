@@ -88,9 +88,9 @@ class Tips:
 			index=missing[pos]
 			results=[]
 			async for result in self.subreddit.search("tip #"+str(index)): results+=[result]
-			if results and self.tipname(results[0].title):
+			if results and (index:=self.tipname(results[0].title)):
 				log(f"Found tip {index} with search",type='success')
-				self.tips[missing.pop(pos)]=results[0]
+				self.tips[missing.pop(pos)]=self.Tip(self,results[0],index)
 
 		if missing!=[]: #log failure
 			log("Could not resolve missing tips "+", ".join(str(val) for val in missing),type="error")
