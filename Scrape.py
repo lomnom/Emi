@@ -216,18 +216,28 @@ def appendFooter(embed,text): #append text to discord embed footer
 async def sextip(ctx,*id):
 	panels=list(ranges(" ".join(id).replace(","," ").split(" ")))
 	if len(panels)==1: #dont do fancy pagination if only one panel
-		await ctx.send(embed=await tipembed(panels[0]))
-		return
+		try:
+			msg=await ctx.send(embed=await tipembed(panels[0]))
+			await msg.add_reaction('🗑️')
+			def check(reaction, user): #reaction checker
+				return reaction.message==msg and str(reaction.emoji)=='🗑️' and user!=bot.user
+			reaction,user=await bot.wait_for('reaction_add', timeout=300, check=check) #wait for reaction
+			await msg.delete()
+			await ctx.message.delete()
+			return
+		except asyncio.TimeoutError:
+			await msg.clear_reaction('🗑️')
+			return
 
 	pos=0 #panel index
 	embed=await tipembed(panels[0])
 	appendFooter(embed," ({}/{})".format(pos+1,len(panels))) #add position to footer ((1/2))
 	msg=await ctx.send(embed=embed) #send first panel
-	for reaction in ['⬅️','➡️']: #add reactions to scroll
+	for reaction in ['⬅️','➡️','🗑️']: #add reactions to scroll
 		await msg.add_reaction(reaction)
 
 	def check(reaction, user): #reaction checker
-		return reaction.message==msg and str(reaction.emoji) in ['⬅️','➡️'] and user!=bot.user
+		return reaction.message==msg and str(reaction.emoji) in ['⬅️','➡️','🗑️'] and user!=bot.user
 
 	try:
 		while True:
@@ -238,13 +248,17 @@ async def sextip(ctx,*id):
 				pos-=1
 			elif emoji=='➡️':
 				pos+=1
+			elif emoji=='🗑️':
+				await msg.delete()
+				await ctx.message.delete()
+				break
 			pos=pos%len(panels) #make the position wrap around
 			embed=await tipembed(panels[pos])
 			appendFooter(embed," ({}/{})".format(pos+1,len(panels))) 
 			await msg.edit(embed=embed) #update panel
 
 	except asyncio.TimeoutError: #user didnt click anything for 5 mins
-		for reaction in ['⬅️','➡️']: #remove scroll buttons
+		for reaction in ['⬅️','➡️','🗑️']: #remove scroll buttons
 			await msg.clear_reaction(reaction)
 		embed=await tipembed(panels[pos]) 
 		appendFooter(embed," (timed out)") #add (timed out) to footer
