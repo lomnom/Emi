@@ -16,6 +16,7 @@ try:
 except ImportError:
 	from bs4 import BeautifulSoup
 import requests
+import random
 
 ############ initialise stats
 def unixtime(unix):
@@ -189,7 +190,11 @@ def appendFooter(embed,text): #append text to discord embed footer
 	description="Get sex tip"
 )
 async def sextip(ctx,*id):
-	panels=list(ranges(" ".join(id).replace(","," ").split(" ")))
+	if id:
+		panels=list(ranges(" ".join(id).replace(","," ").split(" ")))
+	else:
+		panels=[random.randint(1,len(tips))]
+
 	if len(panels)==1: #dont do fancy pagination if only one panel
 		try:
 			msg=await ctx.send(embed=await tipembed(panels[0]))
