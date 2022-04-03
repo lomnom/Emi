@@ -16,7 +16,7 @@ try:
 except ImportError:
 	from bs4 import BeautifulSoup
 import requests
-import random
+from random import randint
 
 ############ initialise stats
 def unixtime(unix):
@@ -122,11 +122,7 @@ class Tips:
 		# discord embed generator
 		async def embed(self):
 			if not hasattr(self,"image"):
-				try:
-					await self.refresh()
-				except Exception as e:
-					log("Met '{}: {}'".format(type(e),str(e)),type="error")
-					return None
+				await self.refresh()
 			embed=discord.Embed(
 				title=self.title, url=self.url,
 				description="["+self.flair+"]" if self.flair!=None else "",
@@ -173,7 +169,7 @@ def ranges(ranges): # ["1","1-2"] -> [1,1,2]
 async def tipembed(id): #get tip's embed
 	try:
 		embed=await tips.tip(int(id)).embed()
-	except KeyError:
+	except:
 		return discord.Embed(title="Error!", description=f"Tip {id} does not exist!", color=0xff0000)
 	return embed
 
@@ -192,32 +188,49 @@ def appendFooter(embed,text): #append text to discord embed footer
 async def sextip(ctx,*id):
 	if id:
 		panels=list(ranges(" ".join(id).replace(","," ").split(" ")))
+		random=False
 	else:
-		panels=[random.randint(1,len(tips))]
+		panels=[randint(1,len(tips))]
+		random=True
 
 	if len(panels)==1: #dont do fancy pagination if only one panel
+		reactions=['🗑️']
+		if random: reactions+=['🎲']
+		msg=await ctx.send(embed=await tipembed(panels[0]))
+
+		for reaction in reactions:
+			await msg.add_reaction(reaction)
+
+		def check(reaction, user): #reaction checker
+			return reaction.message==msg and str(reaction.emoji) in reactions and user!=bot.user
+
 		try:
-			msg=await ctx.send(embed=await tipembed(panels[0]))
-			await msg.add_reaction('🗑️')
-			def check(reaction, user): #reaction checker
-				return reaction.message==msg and str(reaction.emoji)=='🗑️' and user!=bot.user
-			reaction,user=await bot.wait_for('reaction_add', timeout=300, check=check) #wait for reaction
-			await msg.delete()
-			await ctx.message.delete()
-			return
+			while True:
+				reaction,user=await bot.wait_for('reaction_add', timeout=300, check=check) #wait for reaction
+				emoji=str(reaction)
+				if emoji=='🗑️':
+					await msg.delete()
+					await ctx.message.delete()
+					return
+				elif emoji=='🎲':
+					panels=[randint(1,len(tips))]
+					await msg.edit(embed=await tipembed(panels[0]))
+					await reaction.remove(user)
 		except asyncio.TimeoutError:
-			await msg.clear_reaction('🗑️')
+			for reaction in reactions:
+				await msg.clear_reaction(reaction)
 			return
 
 	pos=0 #panel index
 	embed=await tipembed(panels[0])
 	appendFooter(embed," ({}/{})".format(pos+1,len(panels))) #add position to footer ((1/2))
 	msg=await ctx.send(embed=embed) #send first panel
-	for reaction in ['⬅️','➡️','🗑️']: #add reactions to scroll
+	reactions=['⬅️','➡️','🗑️']
+	for reaction in reactions: #add reactions to scroll
 		await msg.add_reaction(reaction)
 
 	def check(reaction, user): #reaction checker
-		return reaction.message==msg and str(reaction.emoji) in ['⬅️','➡️','🗑️'] and user!=bot.user
+		return reaction.message==msg and str(reaction.emoji) in reactions and user!=bot.user
 
 	try:
 		while True:
@@ -238,7 +251,7 @@ async def sextip(ctx,*id):
 			await msg.edit(embed=embed) #update panel
 
 	except asyncio.TimeoutError: #user didnt click anything for 5 mins
-		for reaction in ['⬅️','➡️','🗑️']: #remove scroll buttons
+		for reaction in reactions: #remove scroll buttons
 			await msg.clear_reaction(reaction)
 		embed=await tipembed(panels[pos]) 
 		appendFooter(embed," (timed out)") #add (timed out) to footer
