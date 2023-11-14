@@ -13,3 +13,4 @@ Run `Scrape.py`
 - `lxml`
 ## Screenshot
 ![image](Screenshot.png)
+![image](Screenshot1.png)
