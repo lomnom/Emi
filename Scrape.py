@@ -63,7 +63,7 @@ class Tips:
 		clashing={}
 
 		# look through all posts in subreddit that may be panels
-		async for post in self.subreddit.search(f"Eitra and Emi",sort="new",limit=None):
+		async for post in self.subreddit.search(f"Eitra and Emi",sort="new",limit=15):
 			index=self.tipname(post.title)
 			if index: #check if post is actually panel
 				if index[1] in clashing: #add to list of candidates for clashing panel, if clashing
